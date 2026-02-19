@@ -1,4 +1,4 @@
-// js/render.js（reagentは「組成フォーム + 調製法フォーム」）
+// js/render.js（全文置き換え）
 (function () {
   function setActiveTab(tab) {
     document.querySelectorAll(".tabs a").forEach(a => a.classList.remove("active"));
@@ -9,6 +9,11 @@
   function fmtTime(ts) {
     const d = new Date(ts);
     return d.toLocaleString("ja-JP");
+  }
+
+  function fmtHM(ts) {
+    const d = new Date(ts);
+    return d.toLocaleString("ja-JP", { hour12: false });
   }
 
   function label(type) {
@@ -26,7 +31,7 @@
     return escapeHtml(s).replaceAll('"', "&quot;");
   }
 
-  // wikiリンクのための1行変換
+  // [[...]] を1行内リンク化
   function wikiInline(text) {
     const esc = (s) => (s || "")
       .replaceAll("&", "&amp;")
@@ -75,11 +80,8 @@
     `;
   }
 
-  // ===== 試薬のデータをページ内にJSONで持つ（bodyは「調製法」テキストとして使う） =====
-  // p.metaReagent = { composition: [{name,amount,location}, ...] }
-  // ※StoreはそのままJSON保存できるので、ページオブジェクトに追加してOK
+  // ===== 試薬（組成フォーム） =====
   function getReagentMeta(p) {
-    // 後方互換：無ければ空
     const m = p.metaReagent;
     if (!m || typeof m !== "object") return { composition: [] };
     if (!Array.isArray(m.composition)) return { composition: [] };
@@ -88,7 +90,6 @@
 
   function renderCompositionTable(rows) {
     if (!rows.length) return `<div class="small">未登録</div>`;
-
     return `
       <div style="overflow-x:auto;">
         <table border="1" cellpadding="6">
@@ -109,6 +110,43 @@
     `;
   }
 
+  function reagentRowHtml(i, name, amount, location) {
+    return `
+      <div class="card" style="padding:10px;">
+        <div class="row">
+          <label>
+            薬品名
+            <input class="comp-name" data-i="${i}" value="${escapeAttr(name || "")}" placeholder="例：FBS / [[DMEM]]" />
+          </label>
+          <label>
+            量
+            <input class="comp-amount" data-i="${i}" value="${escapeAttr(amount || "")}" placeholder="例：50 mL" />
+          </label>
+          <label>
+            場所
+            <input class="comp-location" data-i="${i}" value="${escapeAttr(location || "")}" placeholder="例：-20℃ / 冷蔵庫2段目" />
+          </label>
+        </div>
+        <div style="text-align:right;">
+          <button class="btn comp-del" data-i="${i}" type="button">削除</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function readReagentCompositionFromDOM() {
+    const container = document.getElementById("compRows");
+    if (!container) return [];
+    const cards = Array.from(container.querySelectorAll(".card"));
+    return cards.map(card => {
+      const name = card.querySelector(".comp-name")?.value?.trim() || "";
+      const amount = card.querySelector(".comp-amount")?.value?.trim() || "";
+      const location = card.querySelector(".comp-location")?.value?.trim() || "";
+      return { name, amount, location };
+    }).filter(r => r.name || r.amount || r.location);
+  }
+
+  // ===== 詳細 =====
   function renderPageDetail(id) {
     const p = Store.getPage(id);
     if (!p) return `<div class="card">見つかりません</div>`;
@@ -116,7 +154,6 @@
     setActiveTab(p.type);
     const tags = (p.tags || []).map(t => `<span class="pill">${escapeHtml(t)}</span>`).join("");
 
-    // ===== 試薬：組成→調製法の順で表示 =====
     if (p.type === "reagent") {
       const meta = getReagentMeta(p);
       const methodHtml = p.body ? Link.wikiToHtml(p.body) : `<div class="small">未登録</div>`;
@@ -152,11 +189,9 @@
           </div>
         </div>
       `;
-
       return { html, page: p };
     }
 
-    // ===== それ以外：本文を表示 =====
     const bodyHtml = Link.wikiToHtml(p.body || "");
     const html = `
       <div class="row">
@@ -183,7 +218,7 @@
     return { html, page: p };
   }
 
-  // ===== 編集画面：試薬だけフォーム =====
+  // ===== 編集 =====
   function renderEditor(mode, id, preset) {
     const p = mode === "edit"
       ? Store.getPage(id)
@@ -247,11 +282,9 @@
       </div>
     `;
 
-    // ---- 試薬フォーム ----
     if (p.type === "reagent") {
       const meta = getReagentMeta(p);
       const rows = meta.composition || [];
-
       const compRowsHtml = rows.length
         ? rows.map((r, i) => reagentRowHtml(i, r.name, r.amount, r.location)).join("")
         : reagentRowHtml(0, "", "", "");
@@ -279,50 +312,21 @@
 
         ${commonBottom}
       `;
-
       return { html, page: p };
     }
 
-    // ---- プロトコル/当番は従来どおり本文 ----
     const html = `
       ${commonTop}
-
       <label>
         本文（Markdown風 + [[リンク]]）
         <textarea id="fBody">${escapeHtml(p.body || "")}</textarea>
       </label>
-
       ${commonBottom}
     `;
-
     return { html, page: p };
   }
 
-  // 試薬の組成行（入力フォーム）
-  function reagentRowHtml(i, name, amount, location) {
-    return `
-      <div class="card" style="padding:10px;">
-        <div class="row">
-          <label>
-            薬品名
-            <input class="comp-name" data-i="${i}" value="${escapeAttr(name || "")}" placeholder="例：FBS / [[DMEM]]" />
-          </label>
-          <label>
-            量
-            <input class="comp-amount" data-i="${i}" value="${escapeAttr(amount || "")}" placeholder="例：50 mL" />
-          </label>
-          <label>
-            場所
-            <input class="comp-location" data-i="${i}" value="${escapeAttr(location || "")}" placeholder="例：-20℃ / 冷蔵庫2段目" />
-          </label>
-        </div>
-        <div style="text-align:right;">
-          <button class="btn comp-del" data-i="${i}" type="button">削除</button>
-        </div>
-      </div>
-    `;
-  }
-
+  // ===== 検索 =====
   function renderSearch(q) {
     setActiveTab("search");
     const results = q ? Store.search(q) : [];
@@ -336,50 +340,143 @@
     `;
   }
 
-  function renderRuns() {
-    setActiveTab("run");
-    const runs = Store.listRuns();
-    const rows = runs.map(r => {
-      const p = r.protocolId ? Store.getPage(r.protocolId) : null;
-      return `
-        <div class="card">
-          <h3>${p ? escapeHtml(p.title) : "(プロトコル未指定)"}</h3>
-          <div class="meta">
-            <span>開始: ${fmtTime(r.startedAt)}</span>
-            <span>${r.finishedAt ? "終了: " + fmtTime(r.finishedAt) : "進行中"}</span>
-          </div>
-          <div class="small">${escapeHtml(r.notes || "")}</div>
-        </div>
-      `;
-    }).join("");
-
+  // ===== Run一覧/詳細 =====
+  function runCard(r) {
+    const p = r.protocolId ? Store.getPage(r.protocolId) : null;
+    const title = p ? p.title : (r.protocolTitleSnapshot || "(プロトコル未指定)");
+    const status = r.finishedAt ? "完了" : "進行中";
     return `
-      <div class="row">
-        <div>
-          <h2>Run（実行ログ）</h2>
-          <div class="small">まずは「プロトコル詳細 → ▶実行開始」でログを残せます。</div>
+      <div class="card">
+        <h3><a href="#/run/${r.id}">${escapeHtml(title)}</a></h3>
+        <div class="meta">
+          <span>${status}</span>
+          <span>開始: ${fmtHM(r.startedAt)}</span>
+          <span>${r.finishedAt ? "終了: " + fmtHM(r.finishedAt) : ""}</span>
         </div>
+        <div class="small">${escapeHtml(r.notes || "")}</div>
       </div>
-      <hr>
-      <div class="list">${rows || `<div class="small">まだRunがありません</div>`}</div>
     `;
   }
 
-  // app.js側から「今の試薬フォームの入力」を拾うために使う
-  function readReagentCompositionFromDOM() {
-    const container = document.getElementById("compRows");
-    if (!container) return [];
+  function renderRuns() {
+    setActiveTab("run");
+    const runs = Store.listRuns();
+    return `
+      <div class="row">
+        <div>
+          <h2>Run（実験記録）</h2>
+          <div class="small">プロトコル詳細の「▶ 実行を開始」から作れます。</div>
+        </div>
+      </div>
+      <hr>
+      <div class="list">${runs.map(runCard).join("") || `<div class="small">まだRunがありません</div>`}</div>
+    `;
+  }
 
-    // 各rowカードごとに拾う（index依存しない）
-    const cards = Array.from(container.querySelectorAll(".card"));
-    const rows = cards.map(card => {
-      const name = card.querySelector(".comp-name")?.value?.trim() || "";
-      const amount = card.querySelector(".comp-amount")?.value?.trim() || "";
-      const location = card.querySelector(".comp-location")?.value?.trim() || "";
-      return { name, amount, location };
-    }).filter(r => r.name || r.amount || r.location); // 空行は捨てる
+  function renderRunDetail(runId) {
+    setActiveTab("run");
+    const run = Store.getRun(runId);
+    if (!run) return `<div class="card">Runが見つかりません</div>`;
 
-    return rows;
+    const p = run.protocolId ? Store.getPage(run.protocolId) : null;
+    const title = p ? p.title : (run.protocolTitleSnapshot || "(プロトコル未指定)");
+    const blocks = (run.plan?.blocks || []);
+
+    const blocksHtml = `
+      <div class="card">
+        <h3>⏳ インキュベート計画</h3>
+        ${blocks.length ? `
+          <div style="overflow-x:auto;">
+            <table border="1" cellpadding="6">
+              <tr>
+                <th>#</th>
+                <th>内容</th>
+                <th>開始</th>
+                <th>終了</th>
+                <th></th>
+              </tr>
+              ${blocks.map((b, i) => `
+                <tr>
+                  <td>${i + 1}</td>
+                  <td>${escapeHtml(b.label || "Incubate")}</td>
+                  <td>${fmtHM(b.startAt)}</td>
+                  <td>${fmtHM(b.endAt)}</td>
+                  <td><button class="btn" data-del-block="${i}">削除</button></td>
+                </tr>
+              `).join("")}
+            </table>
+          </div>
+        ` : `<div class="small">まだ区間がありません</div>`}
+      </div>
+    `;
+
+    const html = `
+      <div class="row">
+        <div>
+          <h2>Run</h2>
+          <div class="meta">
+            <span>プロトコル: ${escapeHtml(title)}</span>
+            <span>${run.finishedAt ? "完了" : "進行中"}</span>
+          </div>
+        </div>
+        <div style="text-align:right; min-width:280px;">
+          ${p ? `<a class="btn" href="#/page/${p.id}">プロトコルへ</a>` : ""}
+          <button class="btn" id="btnFinishRun">${run.finishedAt ? "完了解除" : "完了にする"}</button>
+          <button class="btn" id="btnDelRun">Run削除</button>
+        </div>
+      </div>
+
+      <hr>
+
+      <div class="card">
+        <h3>🕒 開始時刻（基準）</h3>
+        <div class="row">
+          <label>
+            開始時刻
+            <input id="runStart" type="datetime-local" />
+          </label>
+          <div style="align-self:end; text-align:right;">
+            <button class="btn primary" id="btnSetStart">保存</button>
+          </div>
+        </div>
+        <div class="small">インキュベート区間の開始/終了を、この時刻から積み上げて管理できます。</div>
+      </div>
+
+      <div class="card">
+        <h3>➕ インキュベート区間を追加</h3>
+        <div class="row">
+          <label>
+            ラベル
+            <input id="blkLabel" placeholder="例：培養（TMZ処理）" />
+          </label>
+          <label>
+            継続時間（時間）
+            <input id="blkHours" type="number" step="0.1" placeholder="例：24" />
+          </label>
+        </div>
+        <div class="row">
+          <label>
+            開始時刻（空なら直前の終了 or 開始時刻）
+            <input id="blkStart" type="datetime-local" />
+          </label>
+          <div style="align-self:end; text-align:right;">
+            <button class="btn primary" id="btnAddBlock">追加</button>
+          </div>
+        </div>
+      </div>
+
+      ${blocksHtml}
+
+      <div class="card">
+        <h3>📝 メモ</h3>
+        <textarea id="runNotes" placeholder="結果、トラブル、条件など">${escapeHtml(run.notes || "")}</textarea>
+        <div style="text-align:right; margin-top:10px;">
+          <button class="btn primary" id="btnSaveNotes">メモ保存</button>
+        </div>
+      </div>
+    `;
+
+    return { html, run };
   }
 
   window.Render = {
@@ -388,9 +485,10 @@
     renderEditor,
     renderSearch,
     renderRuns,
+    renderRunDetail,
     label,
 
-    // 試薬フォーム用の補助
+    // reagent form helpers
     reagentRowHtml,
     readReagentCompositionFromDOM
   };
