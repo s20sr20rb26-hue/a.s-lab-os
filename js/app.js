@@ -1,22 +1,60 @@
+// js/app.js（全文置き換え）
 (function () {
   const appEl = document.getElementById("app");
   const searchEl = document.getElementById("globalSearch");
   const btnNew = document.getElementById("btnNew");
 
+  function splitList(s) {
+    return (s || "").split(",").map(x => x.trim()).filter(Boolean);
+  }
+
+  function toDatetimeLocal(ts) {
+    const d = new Date(ts);
+    const pad = (n) => String(n).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    const mm = pad(d.getMonth() + 1);
+    const dd = pad(d.getDate());
+    const hh = pad(d.getHours());
+    const mi = pad(d.getMinutes());
+    return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+  }
+
+  function wireReagentFormButtons() {
+    const addBtn = document.getElementById("btnAddRow");
+    const rowsEl = document.getElementById("compRows");
+    if (!addBtn || !rowsEl) return;
+
+    const bindDeleteButtons = () => {
+      rowsEl.querySelectorAll(".comp-del").forEach(btn => {
+        btn.onclick = () => {
+          const card = btn.closest(".card");
+          if (card) card.remove();
+        };
+      });
+    };
+
+    addBtn.addEventListener("click", () => {
+      const idx = rowsEl.querySelectorAll(".card").length;
+      rowsEl.insertAdjacentHTML("beforeend", Render.reagentRowHtml(idx, "", "", ""));
+      bindDeleteButtons();
+    });
+
+    bindDeleteButtons();
+  }
+
   function navigate() {
     const { parts, query } = Router.parseHash();
-    const [root, a, b] = parts;
+    const [root, a] = parts;
 
-    // 一旦クリア
     appEl.innerHTML = "";
 
-    // タブ: /protocol /reagent /duty
+    // タブ一覧
     if (root === "protocol" || root === "reagent" || root === "duty") {
       appEl.innerHTML = Render.renderList(root);
       return;
     }
 
-    // 詳細: /page/:id
+    // ページ詳細
     if (root === "page" && a) {
       const out = Render.renderPageDetail(a);
       if (typeof out === "string") {
@@ -25,14 +63,12 @@
       }
       appEl.innerHTML = out.html;
 
-      // wikiリンクを有効化
+      // Wikiリンクを有効化：プロトコル内で新規作成するなら試薬が多い
       const body = document.getElementById("pageBody");
       if (body) {
-      // プロトコル内リンクで作るのは試薬が多いので、デフォルトはreagentにする
-      const defaultNewType = (out.page.type === "protocol") ? "reagent" : out.page.type;
-      Link.bindWikiLinks(body, { defaultNewType });
+        const defaultNewType = (out.page.type === "protocol") ? "reagent" : out.page.type;
+        Link.bindWikiLinks(body, { defaultNewType });
       }
-
 
       // お気に入り
       document.getElementById("btnFav")?.addEventListener("click", () => {
@@ -50,31 +86,34 @@
         }
       });
 
-      // 実行開始（最低限のRunログ）
+      // Run開始（プロトコルのみ）
       document.getElementById("btnRun")?.addEventListener("click", () => {
-        Store.addRun({
+        const proto = out.page;
+        const newRun = {
           id: Store.uuid(),
-          protocolId: out.page.id,
+          protocolId: proto.id,
+          protocolTitleSnapshot: proto.title,
+          protocolBodySnapshot: proto.body,
           startedAt: Store.now(),
           finishedAt: null,
-          notes: ""
-        });
-        location.hash = "#/run";
+          notes: "",
+          plan: { blocks: [] }
+        };
+        Store.updateRun(newRun);
+        location.hash = `#/run/${newRun.id}`;
       });
 
       return;
     }
 
-    // 新規: /new?type=...&title=...
+    // 新規作成
     if (root === "new") {
       const preset = { type: query.type || "protocol", title: query.title || "" };
       const out = Render.renderEditor("new", null, preset);
-      appEl.innerHTML = out.html;    
-        // 試薬フォーム用：行追加/削除
+      appEl.innerHTML = out.html;
       wireReagentFormButtons();
 
-
-       document.getElementById("btnSave")?.addEventListener("click", () => {
+      document.getElementById("btnSave")?.addEventListener("click", () => {
         const p = out.page;
         p.type = document.getElementById("fType").value;
         p.title = document.getElementById("fTitle").value.trim();
@@ -85,13 +124,8 @@
         if (!p.title) return alert("タイトルは必須です");
 
         if (p.type === "reagent") {
-          // 調製法（自由記述）
           p.body = document.getElementById("fMethod")?.value || "";
-
-          // 組成（フォーム入力）
-          p.metaReagent = {
-            composition: Render.readReagentCompositionFromDOM()
-          };
+          p.metaReagent = { composition: Render.readReagentCompositionFromDOM() };
         } else {
           p.body = document.getElementById("fBody")?.value || "";
           delete p.metaReagent;
@@ -104,14 +138,13 @@
       return;
     }
 
-    // 編集: /edit/:id
+    // 編集
     if (root === "edit" && a) {
       const out = Render.renderEditor("edit", a, null);
-      appEl.innerHTML = out.html;  
-        wireReagentFormButtons();
+      appEl.innerHTML = out.html;
+      wireReagentFormButtons();
 
-
-       document.getElementById("btnSave")?.addEventListener("click", () => {
+      document.getElementById("btnSave")?.addEventListener("click", () => {
         const p = out.page;
         p.type = document.getElementById("fType").value;
         p.title = document.getElementById("fTitle").value.trim();
@@ -123,9 +156,7 @@
 
         if (p.type === "reagent") {
           p.body = document.getElementById("fMethod")?.value || "";
-          p.metaReagent = {
-            composition: Render.readReagentCompositionFromDOM()
-          };
+          p.metaReagent = { composition: Render.readReagentCompositionFromDOM() };
         } else {
           p.body = document.getElementById("fBody")?.value || "";
           delete p.metaReagent;
@@ -138,13 +169,96 @@
       return;
     }
 
-    // Run: /run
+    // Run詳細（★先）
+    if (root === "run" && a) {
+      const out = Render.renderRunDetail(a);
+      if (typeof out === "string") {
+        appEl.innerHTML = out;
+        return;
+      }
+      appEl.innerHTML = out.html;
+
+      // 開始時刻 input 初期化
+      const startInput = document.getElementById("runStart");
+      if (startInput) startInput.value = toDatetimeLocal(out.run.startedAt || Store.now());
+
+      // 開始時刻保存
+      document.getElementById("btnSetStart")?.addEventListener("click", () => {
+        const v = document.getElementById("runStart").value;
+        if (!v) return alert("開始時刻を入力してね");
+        out.run.startedAt = Date.parse(v);
+        out.run.plan = out.run.plan || { blocks: [] };
+        Store.updateRun(out.run);
+        navigate();
+      });
+
+      // 区間追加
+      document.getElementById("btnAddBlock")?.addEventListener("click", () => {
+        const label = document.getElementById("blkLabel").value.trim() || "Incubate";
+        const hours = Number(document.getElementById("blkHours").value);
+        if (!Number.isFinite(hours) || hours <= 0) return alert("継続時間（時間）を入れてね");
+
+        out.run.plan = out.run.plan || { blocks: [] };
+        const blocks = out.run.plan.blocks;
+
+        const startRaw = document.getElementById("blkStart").value;
+        let startAt = startRaw ? Date.parse(startRaw) : null;
+
+        if (!startAt) {
+          const last = blocks.length ? blocks[blocks.length - 1] : null;
+          startAt = last?.endAt || out.run.startedAt || Store.now();
+        }
+
+        const endAt = startAt + hours * 60 * 60 * 1000;
+        blocks.push({ label, startAt, endAt });
+
+        Store.updateRun(out.run);
+        navigate();
+      });
+
+      // 区間削除
+      document.querySelectorAll("[data-del-block]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const idx = Number(btn.getAttribute("data-del-block"));
+          out.run.plan = out.run.plan || { blocks: [] };
+          out.run.plan.blocks.splice(idx, 1);
+          Store.updateRun(out.run);
+          navigate();
+        });
+      });
+
+      // メモ保存
+      document.getElementById("btnSaveNotes")?.addEventListener("click", () => {
+        out.run.notes = document.getElementById("runNotes").value;
+        Store.updateRun(out.run);
+        alert("保存した");
+      });
+
+      // 完了トグル
+      document.getElementById("btnFinishRun")?.addEventListener("click", () => {
+        out.run.finishedAt = out.run.finishedAt ? null : Store.now();
+        Store.updateRun(out.run);
+        navigate();
+      });
+
+      // Run削除
+      document.getElementById("btnDelRun")?.addEventListener("click", () => {
+        if (confirm("このRunを削除しますか？")) {
+          Store.deleteRun(out.run.id);
+          location.hash = "#/run";
+        }
+      });
+
+      return;
+    }
+
+    // Run一覧（★後）
     if (root === "run") {
       appEl.innerHTML = Render.renderRuns();
       return;
     }
 
-    // 検索: /search?q=...
+    // 検索
     if (root === "search") {
       const q = query.q || searchEl.value || "";
       appEl.innerHTML = Render.renderSearch(q);
@@ -154,48 +268,15 @@
     // default
     location.hash = "#/protocol";
   }
-  
-  function wireReagentFormButtons() {
-    const addBtn = document.getElementById("btnAddRow");
-    const rowsEl = document.getElementById("compRows");
 
-    if (!addBtn || !rowsEl) return; // 試薬編集画面じゃない
-
-    addBtn.addEventListener("click", () => {
-      // 新しい空行を追加
-      const idx = rowsEl.querySelectorAll(".card").length;
-      rowsEl.insertAdjacentHTML("beforeend", Render.reagentRowHtml(idx, "", "", ""));
-      // 削除ボタンも効くように張り直し
-      bindDeleteButtons(rowsEl);
-    });
-
-    bindDeleteButtons(rowsEl);
-  }
-
-  function bindDeleteButtons(rowsEl) {
-    rowsEl.querySelectorAll(".comp-del").forEach(btn => {
-      btn.onclick = () => {
-        const card = btn.closest(".card");
-        if (card) card.remove();
-      };
-    });
-  }
-
-  function splitList(s) {
-    return (s || "")
-      .split(",")
-      .map(x => x.trim())
-      .filter(Boolean);
-  }
-
-  // グローバル検索
+  // 検索
   searchEl.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       location.hash = `#/search?q=${encodeURIComponent(searchEl.value)}`;
     }
   });
 
-  // 新規ボタン：今いるタブのtypeで作る
+  // 新規ボタン：今のタブに合わせる
   btnNew.addEventListener("click", () => {
     const { parts } = Router.parseHash();
     const t = parts[0];
