@@ -1,40 +1,4 @@
-// js/app.js（全文置き換え）
-(function () {
-  const appEl = document.getElementById("app");
-  const searchEl = document.getElementById("globalSearch");
-  const btnNew = document.getElementById("btnNew");
-  const btnExport = document.getElementById("btnExport");
-  const btnImport = document.getElementById("btnImport");
-  const fileImport = document.getElementById("fileImport");
-
-  function splitList(s) {
-    return (s || "").split(",").map(x => x.trim()).filter(Boolean);
-  }
-
-  function toDatetimeLocal(ts) {
-    const d = new Date(ts);
-    const pad = (n) => String(n).padStart(2, "0");
-    const yyyy = d.getFullYear();
-    const mm = pad(d.getMonth() + 1);
-    const dd = pad(d.getDate());
-    const hh = pad(d.getHours());
-    const mi = pad(d.getMinutes());
-    return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
-  }
-
-  function wireReagentFormButtons() {
-    const addBtn = document.getElementById("btnAddRow");
-    const rowsEl = document.getElementById("compRows");
-    if (!addBtn || !rowsEl) return;
-
-    const bindDeleteButtons = () => {
-      rowsEl.querySelectorAll(".comp-del").forEach(btn => {
-        btn.onclick = () => {
-          const card = btn.closest(".card");
-          if (card) card.remove();
-        };
-      });
-    };
+// js/app.js（ルーティング + ボタン配線 + Export/Import）    };
 
     addBtn.addEventListener("click", () => {
       const idx = rowsEl.querySelectorAll(".card").length;
@@ -870,5 +834,6 @@
   window.addEventListener("hashchange", navigate);
   navigate();
 })();
+
 
 
