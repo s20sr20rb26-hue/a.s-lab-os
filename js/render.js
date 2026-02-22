@@ -1,40 +1,9 @@
-// js/render.js（全文置き換え）
+ js/render.js（全文置き換え）
 (function () {
   function setActiveTab(tab) {
     document.querySelectorAll(".tabs a").forEach(a => a.classList.remove("active"));
     const el = document.querySelector(`.tabs a[data-tab="${tab}"]`);
-    if (el) el.classList.add("active");
-  }
-
-  function fmtTime(ts) {
-    const d = new Date(ts);
-    return d.toLocaleString("ja-JP");
-  }
-
-  function fmtHM(ts) {
-    const d = new Date(ts);
-    return d.toLocaleString("ja-JP", { hour12: false });
-  }
-
-  function label(type) {
-    return ({ protocol: "プロトコル", reagent: "試薬", duty: "当番", run: "Run" })[type] || type;
-  }
-
-  function escapeHtml(s) {
-    return (s || "")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;");
-  }
-
-  function escapeAttr(s) {
-    return escapeHtml(s).replaceAll('"', "&quot;");
-  }
-
-  // [[...]] を1行内リンク化
-  function wikiInline(text) {
-    const esc = (s) => (s || "")
-      .replaceAll("&", "&amp;")
+    if (el) el.      .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
       .replaceAll(">", "&gt;");
 
@@ -493,3 +462,4 @@
     readReagentCompositionFromDOM
   };
 })();
+
