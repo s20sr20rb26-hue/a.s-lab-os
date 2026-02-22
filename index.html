@@ -2,23 +2,29 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Lab OS</title>
-  <link rel="stylesheet" href="./css/style.css" />
+  <link rel="stylesheet" href="css/style.css" />
 </head>
+
 <body>
   <header class="topbar">
-    <div class="brand">🧪 Lab OS</div>
+    <div class="brand">
+      <div class="logo">🧪</div>
+      <div class="name">Lab<br/>OS</div>
+    </div>
 
-    <div class="topbar-right">
-      <input id="globalSearch" class="search" placeholder="検索（プロトコル/試薬/当番）" />
-      <button id="btnNew" class="btn">＋新規</button>
-      <button id="btnExport">Export</button>
-      <label class="btn">
+    <input id="globalSearch" class="search" placeholder="検索（プロトコル/試薬/当番）" />
+
+    <button id="btnNew" class="btn primary">＋新規</button>
+
+    <button id="btnExport" class="btn">Export</button>
+
+    <!-- Importはスマホで確実に動くlabel方式 -->
+    <label class="btn">
       Import
       <input id="fileImport" type="file" accept="application/json" style="display:none;">
-</label>
-    </div>
+    </label>
   </header>
 
   <nav class="tabs">
@@ -31,10 +37,14 @@
 
   <main id="app" class="container"></main>
 
-  <script src="./js/store.js"></script>
-  <script src="./js/router.js"></script>
-  <script src="./js/link.js"></script>
-  <script src="./js/render.js"></script>
+  <!-- JS（順番重要！） -->
+  <script src="js/router.js"></script>
+  <script src="js/link.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>  <script src="./js/render.js"></script>
   <script src="./js/app.js"></script>
 </body>
 </html>
@@ -311,3 +321,4 @@
   window.addEventListener("hashchange", navigate);
   navigate();
 })();
+
