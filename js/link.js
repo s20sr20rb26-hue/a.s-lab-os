@@ -1,8 +1,7 @@
-// js/link.js（[[リンク]]の新規作成時に type を指定できるようにする）
+// js/link.js（[[リンク]] 変換 + クリックでページへ）
 (function () {
-  // [[...]] を <span class="link">...</span> に変換
   function wikiToHtml(text) {
-    const esc = (s) => s
+    const esc = (s) => (s || "")
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
       .replaceAll(">", "&gt;");
@@ -17,23 +16,19 @@
       .replace(/\n/g, "<br>");
   }
 
-  /**
-   * containerEl 内の [[...]] をクリック可能にする
-   * @param {HTMLElement} containerEl
-   * @param {{defaultNewType?: "protocol"|"reagent"|"duty"}} [opts]
-   */
   function bindWikiLinks(containerEl, opts) {
     const defaultNewType = opts?.defaultNewType || "protocol";
+    if (!containerEl) return;
 
     containerEl.querySelectorAll("[data-wiki]").forEach(el => {
       el.addEventListener("click", () => {
         const name = el.getAttribute("data-wiki");
-        const page = window.Store.findPageByTitleOrAlias(name);
+        const page = Store.findPageByTitleOrAlias(name);
 
         if (page) {
           location.hash = `#/page/${page.id}`;
         } else {
-          // ★存在しないなら、defaultNewTypeで新規作成へ
+          // 存在しない場合は新規作成へ（type指定）
           location.hash = `#/new?type=${encodeURIComponent(defaultNewType)}&title=${encodeURIComponent(name)}`;
         }
       });
