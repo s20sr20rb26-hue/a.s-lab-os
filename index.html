@@ -38,134 +38,13 @@
   <main id="app" class="container"></main>
 
   <!-- JS（順番重要！） -->
-  <script src="js/router.js"></script>
-  <script src="js/link.js"></script>
-  <script src="js/store.js"></script>
-  <script src="js/render.js"></script>
-  <script src="js/app.js"></script>
-</body>
-</html>  <script src="./js/render.js"></script>
-  <script src="./js/app.js"></script>
+  <script src="js/router.js?v=20260222_1"></script>
+  <script src="js/link.js?v=20260222_1"></script>
+  <script src="js/store.js?v=20260222_1"></script>
+  <script src="js/render.js?v=20260222_1"></script>
+  <script src="js/app.js?v=20260222_1"></script>
 </body>
 </html>
-    // タブ一覧
-    if (root === "protocol" || root === "reagent" || root === "duty") {
-      appEl.innerHTML = Render.renderList(root);
-      return;
-    }
-
-    // ページ詳細
-    if (root === "page" && a) {
-      const out = Render.renderPageDetail(a);
-      if (typeof out === "string") {
-        appEl.innerHTML = out;
-        return;
-      }
-      appEl.innerHTML = out.html;
-
-      // Wikiリンクを有効化：プロトコル内で新規作成するなら試薬が多い
-      const body = document.getElementById("pageBody");
-      if (body) {
-        const defaultNewType = (out.page.type === "protocol") ? "reagent" : out.page.type;
-        Link.bindWikiLinks(body, { defaultNewType });
-      }
-
-      // お気に入り
-      document.getElementById("btnFav")?.addEventListener("click", () => {
-        const p = out.page;
-        p.favorite = !p.favorite;
-        Store.upsertPage(p);
-        navigate();
-      });
-
-      // 削除
-      document.getElementById("btnDel")?.addEventListener("click", () => {
-        if (confirm("削除しますか？")) {
-          Store.deletePage(out.page.id);
-          location.hash = `#/${out.page.type}`;
-        }
-      });
-
-      // Run開始（プロトコルのみ）
-      document.getElementById("btnRun")?.addEventListener("click", () => {
-        const proto = out.page;
-        const newRun = {
-          id: Store.uuid(),
-          protocolId: proto.id,
-          protocolTitleSnapshot: proto.title,
-          protocolBodySnapshot: proto.body,
-          startedAt: Store.now(),
-          finishedAt: null,
-          notes: "",
-          plan: { blocks: [] }
-        };
-        Store.updateRun(newRun);
-        location.hash = `#/run/${newRun.id}`;
-      });
-
-      return;
-    }
-
-    // 新規作成
-    if (root === "new") {
-      const preset = { type: query.type || "protocol", title: query.title || "" };
-      const out = Render.renderEditor("new", null, preset);
-      appEl.innerHTML = out.html;
-      wireReagentFormButtons();
-
-      document.getElementById("btnSave")?.addEventListener("click", () => {
-        const p = out.page;
-        p.type = document.getElementById("fType").value;
-        p.title = document.getElementById("fTitle").value.trim();
-        p.aliases = splitList(document.getElementById("fAliases").value);
-        p.tags = splitList(document.getElementById("fTags").value);
-        p.favorite = document.getElementById("fFav").checked;
-
-        if (!p.title) return alert("タイトルは必須です");
-
-        if (p.type === "reagent") {
-          p.body = document.getElementById("fMethod")?.value || "";
-          p.metaReagent = { composition: Render.readReagentCompositionFromDOM() };
-        } else {
-          p.body = document.getElementById("fBody")?.value || "";
-          delete p.metaReagent;
-        }
-
-        Store.upsertPage(p);
-        location.hash = `#/page/${p.id}`;
-      });
-
-      return;
-    }
-
-    // 編集
-    if (root === "edit" && a) {
-      const out = Render.renderEditor("edit", a, null);
-      appEl.innerHTML = out.html;
-      wireReagentFormButtons();
-
-      document.getElementById("btnSave")?.addEventListener("click", () => {
-        const p = out.page;
-        p.type = document.getElementById("fType").value;
-        p.title = document.getElementById("fTitle").value.trim();
-        p.aliases = splitList(document.getElementById("fAliases").value);
-        p.tags = splitList(document.getElementById("fTags").value);
-        p.favorite = document.getElementById("fFav").checked;
-
-        if (!p.title) return alert("タイトルは必須です");
-
-        if (p.type === "reagent") {
-          p.body = document.getElementById("fMethod")?.value || "";
-          p.metaReagent = { composition: Render.readReagentCompositionFromDOM() };
-        } else {
-          p.body = document.getElementById("fBody")?.value || "";
-          delete p.metaReagent;
-        }
-
-        Store.upsertPage(p);
-        location.hash = `#/page/${p.id}`;
-      });
-
       return;
     }
 
@@ -321,4 +200,5 @@
   window.addEventListener("hashchange", navigate);
   navigate();
 })();
+
 
